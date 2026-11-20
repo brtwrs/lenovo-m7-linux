@@ -36,6 +36,9 @@ texture. Measured: 720p30 decode ≈ 15 % CPU; displayed at 15 fps the app uses 
 ## WPE WebKit kiosk (cog)
 If you want web pages: WPE WebKit ≥ 2.44 with Skia uses the GPU through libhybris. Debian 12's WPE (2.38) is
 too old; we ran WPE 2.54 / cog 0.18 from Debian testing/sid in a second chroot. Start with `scripts/gpu-cog.sh URL`.
+
+> ⚠️ WebKit runs **as root without its sandbox** here (no user namespaces on this kernel). Only load your own,
+> trusted pages from your own network, never the open internet.
 Required: no bwrap sandbox (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, no user namespaces on 4.9), MSAA off,
 and `--features=-PropagateDamagingInformation,-UnifyDamagedRegions` (otherwise WPE sometimes draws only the
 changed element into an empty buffer). Simple pages run at 60 fps; heavy dashboards (blur, many images) reached

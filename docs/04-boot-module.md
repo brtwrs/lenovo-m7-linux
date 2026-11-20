@@ -8,8 +8,8 @@
 
 | File | Effect |
 |---|---|
-| `/data/local/tmp/linux-vast` | **always Linux** (create it once: `touch /data/local/tmp/linux-vast`) |
-| `/data/local/tmp/linux-mode` | Linux for one boot (deleted at boot) |
+| `/data/adb/m7linux/linux-vast` | **always Linux** (create it once as root: `mkdir -p /data/adb/m7linux && touch /data/adb/m7linux/linux-vast`) |
+| `/data/adb/m7linux/linux-mode` | Linux for one boot (deleted at boot) |
 | `/data/linux/root/android-once` | Android for one boot (deleted at boot) |
 | neither | normal Android |
 
@@ -21,7 +21,7 @@
 4. starts the screen stack: the Qt app (`/root/autostart-qml` + `/root/autostart-gpu`), a WPE kiosk
    (`/root/kiosk-url` + `/root/autostart-gpu`), or X11 (`/root/autostart-x`).
 
-Log: `/data/local/tmp/m7linux.log`.
+Log: `/data/adb/m7linux/m7linux.log`. Flags and log live in `/data/adb/m7linux` (root only): `/data/local/tmp` is writable by the adb shell user, and a root script writing there could be tricked with a symlink.
 
 ## Safety nets
 * **Volume UP** during the first 20 s of a Linux boot → reboots once into Android.
@@ -29,5 +29,5 @@ Log: `/data/local/tmp/m7linux.log`.
   file in the module folder). To recover: Android → Magisk app → Modules → switch `m7linux` on → reboot with the
   power button (hold Power → Restart).
 * If a Linux boot does not reach `sshd` within 5 minutes, the tablet reboots and the next boot is Android
-  (`linux-attempt` marker). Create `/data/local/tmp/linux-stay` to disable that while debugging.
+  (`linux-attempt` marker). Create `/data/adb/m7linux/linux-stay` to disable that while debugging.
 * From Debian: `touch /root/android-once && reboot` gives one Android boot.

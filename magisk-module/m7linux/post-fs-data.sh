@@ -1,10 +1,11 @@
 #!/system/bin/sh
 # Decide, very early in boot, whether this boot becomes Linux or stays Android.
 #  /data/linux/root/android-once  : one Android boot (set by Volume UP in linux-boot.sh, or `touch` it from Debian)
-#  /data/local/tmp/linux-mode     : one Linux boot (old one-shot flag)
-#  /data/local/tmp/linux-vast     : always Linux. If the previous attempt never reached ssh
+#  /data/adb/m7linux/linux-mode   : one Linux boot
+#  /data/adb/m7linux/linux-vast   : always Linux. If the previous attempt never reached ssh
 #                                   (linux-attempt still exists), this one boot falls back to Android.
-T=/data/local/tmp; A=/data/linux/root/android-once; P=$T/linux-attempt
+# Flags and log live in /data/adb/m7linux (root only, 700), not in the shell-writable /data/local/tmp.
+T=/data/adb/m7linux; mkdir -p $T; chmod 700 $T; A=/data/linux/root/android-once; P=$T/linux-attempt
 [ -f $A ] && { rm -f $A $P; sync; exit 0; }
 if [ -f $T/linux-mode ]; then rm -f $T/linux-mode
 elif [ -f $T/linux-vast ]; then [ -f $P ] && { rm -f $P; sync; exit 0; }

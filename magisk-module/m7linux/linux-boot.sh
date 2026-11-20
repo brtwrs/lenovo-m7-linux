@@ -1,9 +1,10 @@
 #!/system/bin/sh
 # Linux mode: stop the Android UI, bring up wifi from Debian, start sshd on :2222, then the screen stack.
-# Log: /data/local/tmp/m7linux.log
-MOD=${0%/*}; R=/data/linux; L=/data/local/tmp/m7linux.log
+# Log: /data/adb/m7linux/m7linux.log (root-only directory, see post-fs-data.sh)
+MOD=${0%/*}; R=/data/linux; T=/data/adb/m7linux; L=$T/m7linux.log
+mkdir -p $T; chmod 700 $T; [ -L $L ] && rm -f $L
 exec >>$L 2>&1; echo "== $(date) linux-boot"; log(){ echo "$(date +%T) $*"; sync; }
-T=/data/local/tmp; P=$T/linux-attempt; A=$R/root/android-once
+P=$T/linux-attempt; A=$R/root/android-once
 # Safety net: no ssh after 5 minutes -> reboot; post-fs-data then sees linux-attempt and boots Android once.
 ( sleep 300; [ -f $T/linux-stay ] || [ ! -f $P ] || { log "safety net: no ssh, reboot"; reboot; } ) &
 # Escape hatch: Volume UP in the first 20 s -> one Android boot.

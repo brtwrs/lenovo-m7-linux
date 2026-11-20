@@ -3,7 +3,7 @@
 ## Getting back to Android
 * Press **Volume UP** during the first 20 s of a Linux boot → one Android boot.
 * From Debian: `touch /root/android-once && reboot`.
-* Disable Linux permanently: `rm /data/local/tmp/linux-vast`.
+* Disable Linux permanently: `rm /data/adb/m7linux/linux-vast`.
 
 ## Ended up in Android unexpectedly?
 Magisk's **safe mode** (Volume DOWN during boot, easy to hit with a hard reset) disables all modules. Open the
@@ -18,7 +18,7 @@ Magisk app → Modules → switch `m7linux` on → reboot via the power menu. Or
 * After a kernel crash the tablet reboots by itself (`panic=1`). The previous kernel log is in **`/proc/last_kmsg`**.
 * Things that crash the kernel: ALSA mmap playback (any audio player), `rmmod` of the wmt (wifi) modules,
   `FBIOPUT_VSCREENINFO` with another pixel format.
-* Boot log of the module: `/data/local/tmp/m7linux.log`.
+* Boot log of the module: `/data/adb/m7linux/m7linux.log`.
 
 ## Small things that cost time
 * `pgrep -f`/`pkill -f` over ssh also match your own ssh command line; use `pkill -x`.

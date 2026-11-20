@@ -1,6 +1,10 @@
 #!/bin/sh
 # Alternative to Qt: a WPE WebKit kiosk (cog) on the GPU. Needs WPE >= 2.44 with Skia (Debian testing/sid);
 # see docs/09-apps.md. Usage: gpu-cog.sh URL
+#
+# SECURITY: this runs WebKit as root WITHOUT its sandbox (bubblewrap needs user namespaces, which this 4.9 kernel
+# lacks). A malicious page would own the tablet. Only point it at your OWN, trusted pages on your own network,
+# never at the open internet. The Qt route (docs/09-apps.md) does not have this problem.
 . /opt/hybris/env.sh
 export LD_LIBRARY_PATH=/opt/wlr/lib/arm-linux-gnueabihf:/opt/hybris/lib XDG_RUNTIME_DIR=/tmp/xdg LANG=C.UTF-8
 export WLR_BACKENDS=hwcomposer,libinput XDG_SEAT=seat1 EGL_PLATFORM=hwcomposer
