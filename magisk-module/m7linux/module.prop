@@ -2,5 +2,5 @@ id=m7linux
 name=m7linux
 version=1
 versionCode=1
-author=m7-linux contributors
+author=Bart Wijers
 description=Boots Debian instead of the Android UI (see /data/adb/m7linux/linux-vast). Hold Volume UP during boot for one Android boot.
