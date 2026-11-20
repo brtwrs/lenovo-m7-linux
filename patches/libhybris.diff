@@ -1,0 +1,34 @@
+diff --git a/hybris/egl/platforms/wayland/eglplatform_wayland.cpp b/hybris/egl/platforms/wayland/eglplatform_wayland.cpp
+index 873451e..1f8f34d 100644
+--- a/hybris/egl/platforms/wayland/eglplatform_wayland.cpp
++++ b/hybris/egl/platforms/wayland/eglplatform_wayland.cpp
+@@ -217,6 +217,13 @@ extern "C" wl_buffer *waylandws_createWlBuffer(EGLDisplay dpy, EGLImageKHR image
+ 	}
+ 	if (img->target == EGL_WAYLAND_BUFFER_WL) {
+ 		WaylandDisplay *wdpy = (WaylandDisplay *)img->ws_dpy;
++		/* M7: the image may come from another (server) display (WPE fdo);
++		 * then use the caller's client display, which does know android_wlegl. */
++		WaylandDisplay *cdpy = (WaylandDisplay *)hybris_egl_display_get_mapping(dpy);
++		if (cdpy && !cdpy->wlegl && cdpy->queue)
++			wl_display_roundtrip_queue(cdpy->wl_dpy, cdpy->queue);
++		if ((!wdpy || !wdpy->wlegl) && cdpy && cdpy->wlegl)
++			wdpy = cdpy;
+ 		ANativeWindowBuffer *buf = (ANativeWindowBuffer *)img->ws_buffer;
+ 		WaylandNativeWindowBuffer wnb(buf);
+ 		// The buffer will be managed by the app, so pass NULL as the queue so that
+diff --git a/hybris/platforms/common/nativewindowbase.cpp b/hybris/platforms/common/nativewindowbase.cpp
+index 6bd3508..b5cc683 100644
+--- a/hybris/platforms/common/nativewindowbase.cpp
++++ b/hybris/platforms/common/nativewindowbase.cpp
+@@ -349,8 +349,9 @@ int BaseNativeWindow::_query(const struct ANativeWindow* window, int what, int*
+ 			*value = 1;
+ 			return NO_ERROR;
+ 		case NATIVE_WINDOW_BUFFER_AGE:
+-			// sure :)
+-			*value = 2;
++			// M7: the age is wrong with the rotating Wayland buffers (only the clock
++			// got drawn); 0 = unknown, so the app always redraws the whole frame.
++			*value = 0;
+ 			return NO_ERROR;
+ #endif
+ #if ANDROID_VERSION_MAJOR>=9

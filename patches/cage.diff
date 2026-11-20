@@ -1,0 +1,103 @@
+diff --git a/cage.c b/cage.c
+index 5392535..7f5b167 100644
+--- a/cage.c
++++ b/cage.c
+@@ -145,6 +145,7 @@ cleanup_primary_client(pid_t pid)
+ static bool
+ drop_permissions(void)
+ {
++	if (getuid() == 0) return true; /* M7: runs as root in the chroot on purpose */
+ 	if (getuid() != geteuid() || getgid() != getegid()) {
+ 		// Set the gid and uid in the correct order.
+ 		if (setgid(getgid()) != 0 || setuid(getuid()) != 0) {
+@@ -304,7 +305,7 @@ main(int argc, char *argv[])
+ 	sigint_source = wl_event_loop_add_signal(event_loop, SIGINT, handle_signal, &server.wl_display);
+ 	sigterm_source = wl_event_loop_add_signal(event_loop, SIGTERM, handle_signal, &server.wl_display);
+ 
+-	server.backend = wlr_backend_autocreate(server.wl_display);
++	server.backend = wlr_backend_autocreate(server.wl_display, NULL);
+ 	if (!server.backend) {
+ 		wlr_log(WLR_ERROR, "Unable to create the wlroots backend");
+ 		ret = 1;
+diff --git a/meson.build b/meson.build
+index a268f1a..ec713ba 100644
+--- a/meson.build
++++ b/meson.build
+@@ -34,7 +34,7 @@ if is_freebsd
+   )
+ endif
+ 
+-wlroots        = dependency('wlroots', version: '>= 0.13.0')
++wlroots        = dependency('wlroots', version: '>= 0.12.0')
+ wayland_protos = dependency('wayland-protocols', version: '>=1.14')
+ wayland_server = dependency('wayland-server')
+ pixman         = dependency('pixman-1')
+diff --git a/output.c b/output.c
+index d8da3b9..cd0f3b6 100644
+--- a/output.c
++++ b/output.c
+@@ -320,7 +320,7 @@ handle_output_damage_frame(struct wl_listener *listener, void *data)
+ 
+ 	/* Check if we can scan-out the primary view. */
+ 	static bool last_scanned_out = false;
+-	bool scanned_out = scan_out_primary_view(output);
++	bool scanned_out = false; (void)scan_out_primary_view; /* M7: the hwc backend has no direct scanout */
+ 
+ 	if (scanned_out && !last_scanned_out) {
+ 		wlr_log(WLR_DEBUG, "Scanning out primary view");
+diff --git a/seat.c b/seat.c
+index 08f25a3..a8a4214 100644
+--- a/seat.c
++++ b/seat.c
+@@ -523,6 +523,14 @@ handle_touch_motion(struct wl_listener *listener, void *data)
+ 	wlr_idle_notify_activity(seat->server->idle, seat->seat);
+ }
+ 
++/* M7: Qt waits for wl_touch.frame before it delivers a touch */
++static void
++handle_touch_frame(struct wl_listener *listener, void *data)
++{
++	struct cg_seat *seat = wl_container_of(listener, seat, touch_frame);
++	wlr_seat_touch_notify_frame(seat->seat);
++}
++
+ static void
+ handle_cursor_frame(struct wl_listener *listener, void *data)
+ {
+@@ -796,6 +804,8 @@ seat_create(struct cg_server *server, struct wlr_backend *backend)
+ 	wl_signal_add(&seat->cursor->events.touch_up, &seat->touch_up);
+ 	seat->touch_motion.notify = handle_touch_motion;
+ 	wl_signal_add(&seat->cursor->events.touch_motion, &seat->touch_motion);
++	seat->touch_frame.notify = handle_touch_frame;
++	wl_signal_add(&seat->cursor->events.touch_frame, &seat->touch_frame);
+ 
+ 	seat->request_set_cursor.notify = handle_request_set_cursor;
+ 	wl_signal_add(&seat->seat->events.request_set_cursor, &seat->request_set_cursor);
+diff --git a/seat.h b/seat.h
+index 188543d..2ee586f 100644
+--- a/seat.h
++++ b/seat.h
+@@ -39,6 +39,7 @@ struct cg_seat {
+ 	struct wl_listener touch_down;
+ 	struct wl_listener touch_up;
+ 	struct wl_listener touch_motion;
++	struct wl_listener touch_frame;
+ 
+ 	struct wl_list drag_icons;
+ 	struct wl_listener request_start_drag;
+diff --git a/view.c b/view.c
+index b9ba9c2..ea5db3e 100644
+--- a/view.c
++++ b/view.c
+@@ -235,7 +235,10 @@ view_map(struct cg_view *view, struct wlr_surface *surface)
+ 	view->wlr_surface = surface;
+ 
+ 	struct wlr_subsurface *subsurface;
+-	wl_list_for_each (subsurface, &view->wlr_surface->subsurfaces, parent_link) {
++	wl_list_for_each (subsurface, &view->wlr_surface->current.subsurfaces_below, current.link) {
++		subsurface_create(view, subsurface);
++	}
++	wl_list_for_each (subsurface, &view->wlr_surface->current.subsurfaces_above, current.link) {
+ 		subsurface_create(view, subsurface);
+ 	}
+ 

@@ -1,0 +1,7 @@
+*.tar
+*.img
+*.bin
+halium-tmp/
+halium-libs/
+examples/qt/m7-launcher
+examples/qt/*.moc

@@ -1,0 +1,8 @@
+# /data/linux/etc/wpa_supplicant/wpa.conf
+ctrl_interface=/run/wpa_supplicant
+update_config=1
+country=NL
+network={
+    ssid="YourNetwork"
+    psk="your-password"
+}
