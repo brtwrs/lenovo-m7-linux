@@ -1,17 +1,22 @@
-# 14. Buttons, standby, LEDs, vibrator and Bluetooth
+# 14. Buttons, standby, LEDs, vibrator, accelerometer and Bluetooth
 
 Two small Python services in `services/m7-hw/` make the rest of the hardware usable, with Home Assistant in mind.
 
-## m7hw.py: buttons, screen standby, LEDs, vibrator, battery
+## m7hw.py: buttons, screen standby, LEDs, vibrator, accelerometer, battery
 
 * **Power button**: screen standby on/off (backlight 0, touchscreen grabbed so the tap that wakes the screen
   doesn't reach your app). A long press (> 1.5 s) is only reported.
 * **Volume up/down**: brightness ±25 (or wake the screen).
 * **Tap to wake** while in standby.
 * Standby and brightness survive a restart of the service (`state.json`).
+* **Accelerometer**: orientation (portrait, landscape, flat, which side up), tilt in degrees, and a motion sensor
+  that turns on for 5 s when the tablet is picked up or knocked (deviation from the running average above
+  1.2 m/s²). Handy to notice a wall tablet being taken off the wall.
+  The MC34XX has no sysfs values on this kernel; MediaTek's old ioctl on `/dev/gsensor` does work:
+  `_IOR(0x85, 0x03, int)` fills a buffer with `"x y z"` as **hex** text (signed 32-bit), in mm/s².
 * **MQTT with Home Assistant discovery** (device "Tablet M7"): screen as a light with brightness, red and green
   LED as lights with `solid`/`blink`/`fast` effects, a vibrate button, an event entity for button presses
-  (`power`, `power_long`, `volume_up`, `volume_down`), battery %, charge power, charging, battery and CPU
+  (`power`, `power_long`, `volume_up`, `volume_down`), orientation, tilt, motion, battery %, charge power, charging, battery and CPU
   temperature.
 * **Local HTTP for your app** on 127.0.0.1:8091: `GET /status` (standby, brightness), `POST /wake`,
   `POST /vibrate?ms=40`. Useful to wake the screen when your app shows something important.

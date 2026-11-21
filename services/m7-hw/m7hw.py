@@ -6,12 +6,13 @@
   doesn't reach the app.
 - MQTT with Home Assistant discovery: screen (light), red/green LED (light with blink effects),
   vibrate button, battery/charging/power/temperatures, and an event per button press.
+- Accelerometer (MC34XX via MediaTek's /dev/gsensor ioctl): orientation, tilt, and motion (picked up / knocked).
 - Local HTTP on 127.0.0.1:8091 for the app: GET /status, POST /wake, POST /vibrate?ms=40.
 
 Config: config.json next to this file (chmod 600):
   {"mqtt": {"host": "...", "port": 1883, "user": "...", "pass": "..."}, "id": "m7", "name": "Tablet M7"}
 """
-import json, os, threading, time
+import fcntl, json, math, os, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import evdev
@@ -56,6 +57,7 @@ class Hw:
         self.touch = None
         self.touch_grabbed = False
         self.wake_tap = False                              # after waking up: swallow the rest of this tap
+        self.acc_state = {}                                # last orientation/tilt/motion, re-sent on (re)connect
 
     # ---------- screen ----------
     def save(self):
@@ -105,6 +107,8 @@ class Hw:
 
     # ---------- MQTT ----------
     def publish(self, topic, value, retain=True):
+        if topic in ("orientation", "tilt", "motion"):
+            self.acc_state[topic] = value
         if self.mq:
             self.mq.publish(f"{BASE}/{topic}", value if isinstance(value, str) else json.dumps(value), retain=retain)
 
@@ -135,6 +139,12 @@ class Hw:
             "unit_of_measurement": "°C", "device_class": "temperature", "state_class": "measurement", "entity_category": "diagnostic"})
         cfg("sensor", "cpu_temp", {"name": "CPU temperature", "state_topic": f"{BASE}/battery", "value_template": "{{ value_json.cpu }}",
             "unit_of_measurement": "°C", "device_class": "temperature", "state_class": "measurement", "entity_category": "diagnostic"})
+        cfg("sensor", "orientation", {"name": "Orientation", "state_topic": f"{BASE}/orientation", "device_class": "enum",
+            "options": ["portrait", "portrait_upside_down", "landscape_left", "landscape_right", "flat_screen_up", "flat_screen_down"],
+            "icon": "mdi:phone-rotate-landscape"})
+        cfg("sensor", "tilt", {"name": "Tilt", "state_topic": f"{BASE}/tilt", "unit_of_measurement": "°",
+            "state_class": "measurement", "icon": "mdi:angle-acute", "entity_category": "diagnostic"})
+        cfg("binary_sensor", "motion", {"name": "Motion", "state_topic": f"{BASE}/motion", "device_class": "moving"})
         cfg("binary_sensor", "charging", {"name": "Charging", "state_topic": f"{BASE}/battery",
             "value_template": "{{ 'ON' if value_json.charging else 'OFF' }}", "device_class": "battery_charging"})
 
@@ -148,6 +158,8 @@ class Hw:
         for colour, s in self.leds.items():
             self.publish(f"led_{colour}", {"state": "ON" if s["on"] else "OFF", "effect": s["effect"] or "solid"})
         self.report_battery()
+        for k, v in list(self.acc_state.items()):
+            self.publish(k, v)
 
     def on_message(self, c, u, m):
         t = m.topic[len(BASE) + 1:]
@@ -195,6 +207,50 @@ class Hw:
         while True:
             self.report_battery()
             time.sleep(60)
+
+    # ---------- accelerometer ----------
+    # MediaTek hwmsensor: ioctl GSENSOR_IOCTL_READ_SENSORDATA = _IOR(0x85, 0x03, int) returns "x y z" as hex text
+    # (signed 32-bit) in mm/s². Axes: z out of the screen, y along the long side (portrait = natural orientation).
+    ACC_REQ = (2 << 30) | (4 << 16) | (0x85 << 8) | 0x03
+
+    def acc_read(self, fd):
+        b = bytearray(64); fcntl.ioctl(fd, self.ACC_REQ, b, True)
+        return [(lambda v: v - (1 << 32) if v & 0x80000000 else v)(int(w, 16)) for w in bytes(b).split(b"\0")[0].split()][:3]
+
+    @staticmethod
+    def orientation(x, y, z):
+        ax, ay, az = abs(x), abs(y), abs(z)
+        if az > 0.8 * 9807: return "flat_screen_up" if z > 0 else "flat_screen_down"
+        if ay >= ax: return "portrait" if y > 0 else "portrait_upside_down"
+        return "landscape_left" if x > 0 else "landscape_right"
+
+    def acc_loop(self):
+        fd = os.open("/dev/gsensor", os.O_RDONLY)
+        avg = None; current = None; tilt_sent = None; motion_until = 0; moving = False; last = 0; failed = False
+        while True:
+            try:
+                x, y, z = self.acc_read(fd)
+            except (OSError, ValueError) as e:
+                if not failed: print("acc:", repr(e), flush=True); failed = True
+                time.sleep(1); continue
+            if avg is None:
+                avg = [x, y, z]; self.publish("motion", "OFF")
+            # knock or pick-up: deviation from the running average (low-pass, ~1 s) above 1.2 m/s²
+            dev = math.sqrt(sum((a - g) ** 2 for a, g in zip((x, y, z), avg)))
+            avg = [g + (a - g) * 0.05 for a, g in zip((x, y, z), avg)]
+            now = time.time()
+            if dev > 1200: motion_until = now + 5
+            if (now < motion_until) != moving:
+                moving = now < motion_until
+                self.publish("motion", "ON" if moving else "OFF")
+            gx, gy, gz = avg
+            o = self.orientation(gx, gy, gz)
+            tilt = round(math.degrees(math.acos(max(-1, min(1, gz / max(1, math.sqrt(gx * gx + gy * gy + gz * gz)))))))
+            if o != current and not moving:
+                current = o; self.publish("orientation", o)
+            if tilt_sent is None or (abs(tilt - tilt_sent) >= 3 and not moving) or now - last > 300:
+                tilt_sent = tilt; last = now; self.publish("tilt", str(tilt))
+            time.sleep(0.05)
 
     # ---------- buttons and touch ----------
     def button_event(self, kind):
@@ -278,7 +334,7 @@ def main():
     hw = Hw()
     write(LEDS + "lcd-backlight/brightness", 0 if hw.standby else hw.brightness)
     hw.start_mqtt()
-    for target in (hw.button_loop, hw.touch_loop, hw.battery_loop):
+    for target in (hw.button_loop, hw.touch_loop, hw.battery_loop, hw.acc_loop):
         threading.Thread(target=target, daemon=True).start()
     print("m7-hw started", flush=True)
     hw.http()

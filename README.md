@@ -25,13 +25,13 @@ Android's own hwcomposer, the same way Halium/Droidian phones do it.
 | Thermal sensors, cpufreq | ✅ | 10 thermal zones, `interactive` governor |
 | Video decoding (H.264) | ✅ | in software with GStreamer; 720p30 live RTSP ≈ 15 % CPU |
 | Buttons (Vol−, Vol+, Power) | ✅ | standby on Power, brightness on Vol±, events to Home Assistant ([m7-hw](docs/14-hardware-services.md)); Vol+ is also the boot escape |
-| Accelerometer (MC34XX) | 🟡 | on I2C, MediaTek sensor framework (`m_acc_misc`); not wired up yet |
+| Accelerometer (MC34XX) | ✅ | through MediaTek's `/dev/gsensor` ioctl: orientation, tilt and motion to Home Assistant ([m7-hw](docs/14-hardware-services.md)) |
 | Notification LEDs (red/green), vibrator | ✅ | on/off/blink and vibrate, from Home Assistant over MQTT ([m7-hw](docs/14-hardware-services.md)) |
 | Bluetooth | ✅ | BLE scanning over raw HCI (`/dev/stpbt`), as an ESPHome Bluetooth proxy for Home Assistant ([m7-bt](docs/14-hardware-services.md)) |
 | Screen standby | ✅ | backlight off, tap or Power to wake ([m7-hw](docs/14-hardware-services.md)); real suspend is untested |
 | **Audio** (speaker, mic) | ✅ | through Android's `audioserver` and PulseAudio ([chapter 13](docs/13-audio.md)). Never let anything open the ALSA card directly: **mmap crashes the kernel** |
 | **Cameras** (front, back) | ✅ | Android's camera HAL + hardware H.264 encoder → RTSP, 1280×720 ~15 fps ([chapter 12](docs/12-camera.md)) |
-| Light / proximity sensor | 🔴 | the framework is there, but the tablet has no such chip |
+| Light / proximity sensor | ⚪ not fitted | the framework is there, but the tablet has no such chip |
 
 ## How it fits together
 

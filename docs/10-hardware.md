@@ -11,8 +11,8 @@
 | Wifi | `/dev/wmtWifi`, `wlan0` (nl80211) | ✅ |
 | Bluetooth | `/dev/stpbt` (raw H4 HCI) | ✅ BLE scanning; ESPHome Bluetooth proxy for HA ([chapter 14](14-hardware-services.md)) |
 | GPS, FM | `/dev/stpgps`, `/dev/fm` | 🟡 untried |
-| Accelerometer | MC34XX on I2C, `/sys/class/sensor/m_acc_misc` | 🟡 MediaTek sensor framework, not wired up |
-| Light / proximity | `als_ps` framework only | 🔴 no chip on this tablet |
+| Accelerometer | MC34XX on I2C, `/dev/gsensor` | ✅ ioctl `_IOR(0x85, 0x03, int)` returns `"x y z"` as hex text, signed, in mm/s² |
+| Light / proximity | `als_ps` framework only | ⚪ not fitted: no chip on this tablet |
 | LEDs | `/sys/class/leds/red`, `/sys/class/leds/green` | ✅ on, off, blink (`timer` trigger) |
 | Vibrator | `/sys/class/leds/vibrator` (`duration`, `activate`) | ✅ |
 | Battery / charger | `/sys/class/power_supply/battery`, charger bq2560x | ✅ readable |
