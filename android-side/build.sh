@@ -17,7 +17,8 @@ cd "$(dirname "$0")"; mkdir -p out
 "$CC" -O2 -Wall -c -o out/m7cam.o m7cam/m7cam.c && "$CXX" -static-libstdc++ -o out/m7cam out/m7cam.o out/binderpool.o -lcamera2ndk -lmediandk -landroid -llog -ldl
 "$CC" -O2 -Wall -c -o out/m7audio.o m7audio/m7audio.c && "$CXX" -static-libstdc++ -o out/m7audio out/m7audio.o out/binderpool.o -laaudio -llog -ldl -lm
 rm -f out/*.o
-"$CC" -O2 -Wall -o out/fakeperm common/fakeperm.c -lbinder_ndk -ldl
+# fakeperm needs libbinder_ndk (Android 10+). On Android 9 (M7) Halium's minimediaservice provides these services.
+[ "${ARCH:-arm}" = arm64 ] && "$CC" -O2 -Wall -o out/fakeperm common/fakeperm.c -lbinder_ndk -ldl
 "$CC" -shared -fPIC -nostdlib -Wl,-soname,libmediaplayerservice.so -o out/libmediaplayerservice.so minimediaservice/mediaplayerservice-stub.c
 cp android-start.sh out/
 ls -l out
