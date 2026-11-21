@@ -24,13 +24,13 @@ Android's own hwcomposer, the same way Halium/Droidian phones do it.
 | Battery, charging | ✅ | readable in `/sys/class/power_supply/battery` (%, status, current, voltage, temp) |
 | Thermal sensors, cpufreq | ✅ | 10 thermal zones, `interactive` governor |
 | Video decoding (H.264) | ✅ | in software with GStreamer; 720p30 live RTSP ≈ 15 % CPU |
-| Buttons (Vol−, Vol+, Power) | 🟡 | present as `mtk-kpd` (`event1`), readable with evdev; Vol+ is used as boot escape |
+| Buttons (Vol−, Vol+, Power) | ✅ | standby on Power, brightness on Vol±, events to Home Assistant ([m7-hw](docs/14-hardware-services.md)); Vol+ is also the boot escape |
 | Accelerometer (MC34XX) | 🟡 | on I2C, MediaTek sensor framework (`m_acc_misc`); not wired up yet |
-| Notification LEDs (red/green), vibrator | 🟡 | `/sys/class/leds/{red,green,vibrator}`; not wired up yet |
-| Bluetooth | 🟡 | `/dev/stpbt` (same combo chip as wifi); not tried yet |
-| Screen off / suspend | 🟡 | `fb0 blank`, `/sys/power/state` (freeze, mem); untested with the GPU stack |
-| **Audio** | 🔴 | ALSA card exists, but **mmap playback crashes the kernel**. Never let anything play audio |
-| Camera | 🔴 | only through Android's camera HAL; no `/dev/video*` |
+| Notification LEDs (red/green), vibrator | ✅ | on/off/blink and vibrate, from Home Assistant over MQTT ([m7-hw](docs/14-hardware-services.md)) |
+| Bluetooth | ✅ | BLE scanning over raw HCI (`/dev/stpbt`), as an ESPHome Bluetooth proxy for Home Assistant ([m7-bt](docs/14-hardware-services.md)) |
+| Screen standby | ✅ | backlight off, tap or Power to wake ([m7-hw](docs/14-hardware-services.md)); real suspend is untested |
+| **Audio** (speaker, mic) | ✅ | through Android's `audioserver` and PulseAudio ([chapter 13](docs/13-audio.md)). Never let anything open the ALSA card directly: **mmap crashes the kernel** |
+| **Cameras** (front, back) | ✅ | Android's camera HAL + hardware H.264 encoder → RTSP, 1280×720 ~15 fps ([chapter 12](docs/12-camera.md)) |
 | Light / proximity sensor | 🔴 | the framework is there, but the tablet has no such chip |
 
 ## How it fits together
@@ -56,6 +56,8 @@ Android's own hwcomposer, the same way Halium/Droidian phones do it.
   Android (press **Volume UP** during boot, see below).
 * Drawing: your app uses EGL through libhybris, which loads Android's Mali driver with a Halium-patched bionic.
   cage composites with wlroots' hwcomposer backend, which hands buffers to Android's hwcomposer service.
+* Camera and sound also stay Android things: their HALs need Android's services. Small NDK helpers on the
+  Android side (`android-side/`) hand the video and the audio over to Linux, see chapters 12 and 13.
 
 ## Getting started
 
@@ -70,6 +72,9 @@ Android's own hwcomposer, the same way Halium/Droidian phones do it.
 9. [Apps: Qt Quick (recommended), live video, WPE WebKit kiosk](docs/09-apps.md)
 10. [Hardware details and what is left to do](docs/10-hardware.md)
 11. [Recovery, pitfalls and debugging](docs/11-recovery-and-pitfalls.md)
+12. [Camera: RTSP stream from the Android camera HAL](docs/12-camera.md)
+13. [Audio: speaker and microphone through Android's audioserver](docs/13-audio.md)
+14. [Buttons, standby, LEDs, vibrator and a Bluetooth proxy for Home Assistant](docs/14-hardware-services.md)
 
 ## Repository layout
 
@@ -78,6 +83,8 @@ Android's own hwcomposer, the same way Halium/Droidian phones do it.
 | `magisk-module/m7linux/` | the boot module (`post-fs-data.sh`, `linux-boot.sh`) |
 | `scripts/` | rootfs build, chroot, Halium download, build scripts, start scripts, frp tool |
 | `patches/` | patches against libhybris, Droidian wlroots and cage (see [patches/README.md](patches/README.md)) |
+| `android-side/` | small Android-side helpers built with the NDK: `m7cam` (camera → H.264), `m7audio` (PulseAudio → audioserver), their start script, and a stub for Halium's `minimediaservice` |
+| `services/` | Linux-side services: `m7-hw` (buttons, standby, LEDs, vibrator, battery, BLE proxy), `m7-cam` (RTSP server), `m7-audio` (PulseAudio config) |
 | `examples/qt/` | `m7-launcher` (24-bit EGL + `LiveVideo` RTSP item) and a minimal QML demo |
 | `docs/` | step-by-step guides |
 

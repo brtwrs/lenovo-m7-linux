@@ -6,8 +6,16 @@
 * Disable Linux permanently: `rm /data/adb/m7linux/linux-vast`.
 
 ## Ended up in Android unexpectedly?
-Magisk's **safe mode** (Volume DOWN during boot, easy to hit with a hard reset) disables all modules. Open the
-Magisk app → Modules → switch `m7linux` on → reboot via the power menu. Or with adb: `su -c rm /data/adb/modules/m7linux/disable`.
+Magisk's **safe mode** disables all modules, so the next boot is plain Android. Two things trigger it:
+* **Volume DOWN** held during boot (easy to hit with a hard reset).
+* **Magisk's boot-loop counter.** Magisk counts every boot as failed until Android reports boot-complete
+  (`settings.bootloop` in `magisk.db`), and that never happens in Linux mode. After two Linux boots in a row the
+  third one starts in safe mode. Current `linux-boot.sh` resets the counter once ssh is up; if you run an older
+  copy of the module, update it. Check with `magisk --sqlite "SELECT * FROM settings"`; `magisk.log` in
+  `/cache` says `* Safe mode triggered`.
+
+To recover: Magisk app → Modules → switch `m7linux` on → reboot via the power menu. Or with adb (also over
+wifi, `adb connect <ip>:5555`, if you enabled it): `su -c rm /data/adb/modules/m7linux/disable`, then reboot.
 
 ## Black screen
 * Panel black with backlight on after a blank (X screensaver): `start vendor.hwcomposer-2-1; sleep 4; stop vendor.hwcomposer-2-1`,
@@ -16,7 +24,8 @@ Magisk app → Modules → switch `m7linux` on → reboot via the power menu. Or
 
 ## Crashes and logs
 * After a kernel crash the tablet reboots by itself (`panic=1`). The previous kernel log is in **`/proc/last_kmsg`**.
-* Things that crash the kernel: ALSA mmap playback (any audio player), `rmmod` of the wmt (wifi) modules,
+* Things that crash the kernel: ALSA mmap playback (any audio player that opens `hw:0` directly; use PulseAudio from
+  [chapter 13](13-audio.md)), `rmmod` of the wmt (wifi) modules,
   `FBIOPUT_VSCREENINFO` with another pixel format.
 * Boot log of the module: `/data/adb/m7linux/m7linux.log`.
 

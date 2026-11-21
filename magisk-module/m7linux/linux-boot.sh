@@ -40,6 +40,11 @@ for i in $(seq 30); do C /sbin/wpa_cli -i wlan0 status 2>/dev/null | grep -q wpa
 log "wpa: $(C /sbin/wpa_cli -i wlan0 status 2>&1 | grep -E 'wpa_state|ssid=' | tr '\n' ' ')"
 C /bin/sh -c 'udhcpc -i wlan0 -n -q -t 10 -s /etc/udhcpc/default.script'; log "ip: $(ip -4 addr show wlan0 | grep inet)"
 C /bin/sh -c 'mkdir -p /run/sshd; chmod 755 /run /run/sshd; /usr/sbin/sshd -p 2222'; log "sshd rc=$?"; rm -f $P; sync
+# Magisk counts every boot as failed until Android reports boot-complete (magisk.db, settings.bootloop),
+# which never happens in Linux mode. After two Linux boots in a row, the third would start in Magisk's
+# safe mode, which disables every module (so: Android). Linux only counts as a success here (ssh is up),
+# so reset the counter ourselves, as Magisk does at boot-complete. A Linux boot that hangs still counts.
+magisk --sqlite "REPLACE INTO settings (key,value) VALUES('bootloop',0)"; log "magisk boot counter reset"
 # 5a. GPU mode: hwcomposer back on, then the app (Qt by default, or a WPE browser kiosk)
 if [ -n "$GPU" ]; then
   start vendor.hwcomposer-2-1; mkdir -p $R/tmp/xdg; sleep 3
@@ -48,3 +53,6 @@ if [ -n "$GPU" ]; then
 fi
 # 5b. No GPU: X11 + i3 on the framebuffer (software rendering), if /root/autostart-x exists
 [ -z "$GPU" ] && [ -f $R/root/autostart-x ] && { C /bin/sh -c "cd /root; LANG=C.UTF-8 setsid xinit -- :0 -nolisten tcp -nocursor -keeptty -novtswitch -sharevts </dev/null >/tmp/xinit.log 2>&1 &"; log "X started"; }
+# 5c. Camera and sound (/root/autostart-media): Android-side helpers in /data/adb/m7media
+#     (docs/12-camera.md, docs/13-audio.md). Their Linux-side counterparts start with your app's start script.
+[ -f $R/root/autostart-media ] && [ -x /data/adb/m7media/android-start.sh ] && { setsid sh /data/adb/m7media/android-start.sh </dev/null >/dev/null 2>&1 & log "camera/sound started"; }
