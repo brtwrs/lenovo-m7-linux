@@ -2,11 +2,14 @@
 
 Two small Python services in `services/m7-hw/` make the rest of the hardware usable, with Home Assistant in mind.
 
-## m7hw.py: buttons, screen standby, LEDs, vibrator, accelerometer, battery
+## tablethw.py: buttons, screen standby, LEDs, vibrator, accelerometer, battery
+
+`tablethw.py` is shared with the [Tab M8 project](https://github.com/brtwrs/lenovo-m8-linux) and detects which tablet it runs on.
 
 * **Power button**: screen standby on/off (backlight 0, touchscreen grabbed so the tap that wakes the screen
   doesn't reach your app). A long press (> 1.5 s) is only reported.
-* **Volume up/down**: brightness ±25 (or wake the screen).
+* **Volume up/down**: PulseAudio volume ±6 % with a short click (or wake the screen). Brightness is set over MQTT.
+* **Automatic standby** after `standby_after` seconds (default 300) without touch or button, unless audio plays.
 * **Tap to wake** while in standby.
 * Standby and brightness survive a restart of the service (`state.json`).
 * **Accelerometer**: orientation (portrait, landscape, flat, which side up), tilt in degrees, and a motion sensor
@@ -19,14 +22,13 @@ Two small Python services in `services/m7-hw/` make the rest of the hardware usa
   (`power`, `power_long`, `volume_up`, `volume_down`), orientation, tilt, motion, battery %, charge power, charging, battery and CPU
   temperature.
 * **Local HTTP for your app** on 127.0.0.1:8091: `GET /status` (standby, brightness), `POST /wake`,
-  `POST /vibrate?ms=40`. Useful to wake the screen when your app shows something important.
+  `POST /vibrate?ms=40`. Useful to wake the screen when your app shows something important. MQTT topics live under
+  `tablethw/<id>/`.
 
 ```sh
 apt install --no-install-recommends python3-evdev python3-paho-mqtt
-mkdir -p /root/m7-hw && cp services/m7-hw/m7hw.py /root/m7-hw/
-umask 077; cat > /root/m7-hw/config.json <<'EOF'
-{"mqtt": {"host": "192.168.1.10", "port": 1883, "user": "m7", "pass": "..."}, "id": "m7", "name": "Tablet M7"}
-EOF
+mkdir -p /root/m7-hw && cp services/m7-hw/tablethw.py /root/m7-hw/
+umask 077; cp services/m7-hw/config.example.json /root/m7-hw/config.json      # then edit it
 ```
 
 Notes:
@@ -59,6 +61,6 @@ echo '{"name": "m7-bt", "friendly": "Tablet M7 BT", "allowed": ["<Home Assistant
 From your app's start script, before the compositor:
 
 ```sh
-pgrep -f m7hw.py >/dev/null || (cd /root/m7-hw && setsid python3 m7hw.py </dev/null >/tmp/m7hw.log 2>&1 &)
+pgrep -f tablethw.py >/dev/null || (cd /root/m7-hw && setsid python3 tablethw.py </dev/null >/tmp/tablethw.log 2>&1 &)
 pgrep -f m7bt.py >/dev/null || (cd /root/m7-hw && setsid python3 m7bt.py </dev/null >/tmp/m7bt.log 2>&1 &)
 ```
