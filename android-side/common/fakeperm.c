@@ -12,6 +12,10 @@
  *   permission_checker  android.permission.IPermissionChecker  checkPermission -> 0 (PERMISSION_GRANTED); Android 12+
  *   scheduling_policy   android.os.ISchedulingPolicyService    requestPriority -> 0. Without it audioserver's FastMixer
  *                       retries every second before each HAL write, so nothing ever reaches the speaker.
+ *   package_native      android.content.pm.IPackageManagerNative  every call -> 0 (empty list, empty string, false).
+ *                       MediaCodec::configure waits for it on Android 12 (format shaper), so no encoder without it.
+ *   processinfo         android.os.IProcessInfoService  every pid: PROCESS_STATE_TOP, oom score 0. CameraService
+ *                       asks this before every connect; without an answer of the right length it refuses.
  * A service that already exists (e.g. on a normal Android boot) is skipped.
  *
  * Only run this in Linux mode: the Android UI and its apps are stopped there, and the only clients are your own
@@ -53,6 +57,23 @@ static binder_status_t neutral_transact(AIBinder *b, transaction_code_t code, co
     return AParcel_writeInt32(out, 0);
 }
 
+/* IProcessInfoService (frameworks/native/libs/binder/IProcessInfoService.cpp): the client writes int[] pids plus the
+   lengths of the out arrays; the reply is the states array (and, for code 2, the scores array), each as length + values */
+enum { GET_PROCESS_STATES_FROM_PIDS = FIRST_CALL_TRANSACTION, GET_PROCESS_STATES_AND_OOM_SCORES_FROM_PIDS };
+#define PROCESS_STATE_TOP 2
+static binder_status_t processinfo_transact(AIBinder *b, transaction_code_t code, const AParcel *in, AParcel *out) {
+    int32_t n = 0;
+    if (AParcel_readInt32(in, &n) != STATUS_OK || n < 0 || n > 4096) return STATUS_BAD_VALUE;
+    reply_ok(out);
+    AParcel_writeInt32(out, n);
+    for (int32_t i = 0; i < n; i++) AParcel_writeInt32(out, PROCESS_STATE_TOP);
+    if (code == GET_PROCESS_STATES_AND_OOM_SCORES_FROM_PIDS) {
+        AParcel_writeInt32(out, n);
+        for (int32_t i = 0; i < n; i++) AParcel_writeInt32(out, 0);
+    }
+    return STATUS_OK;
+}
+
 static const struct { const char *name, *descriptor; AIBinder_Class_onTransact fn; } SERVICES[] = {
     { "permission",     "android.os.IPermissionController",        permission_transact },
     { "activity",       "android.app.IActivityManager",            neutral_transact },
@@ -60,6 +81,8 @@ static const struct { const char *name, *descriptor; AIBinder_Class_onTransact f
     { "sensor_privacy", "android.hardware.ISensorPrivacyManager",  neutral_transact },
     { "permission_checker", "android.permission.IPermissionChecker", neutral_transact },
     { "scheduling_policy",  "android.os.ISchedulingPolicyService",   neutral_transact },
+    { "package_native",     "android.content.pm.IPackageManagerNative", neutral_transact },
+    { "processinfo",        "android.os.IProcessInfoService",        processinfo_transact },
 };
 
 int main(void) {

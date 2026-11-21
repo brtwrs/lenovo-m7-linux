@@ -92,7 +92,9 @@ static void *encoder_output(void *arg) {
 
 static ANativeWindow *create_encoder(int w, int h, int fps, int bps) {
     /* by name: createEncoderByType makes Android enumerate every codec first (~6 s) */
-    codec = AMediaCodec_createCodecByName("OMX.MTK.VIDEO.ENCODER.AVC");
+    static const char *const names[] = { "OMX.MTK.VIDEO.ENCODER.AVC",   /* Android 9 (M7, OMX) */
+                                         "c2.mtk.avc.encoder" };         /* Android 12 (M8, Codec2) */
+    for (size_t i = 0; !codec && i < sizeof names / sizeof names[0]; i++) codec = AMediaCodec_createCodecByName(names[i]);
     if (!codec) codec = AMediaCodec_createEncoderByType("video/avc");
     if (!codec) { fprintf(stderr, "no H.264 encoder\n"); exit(1); }
     AMediaFormat *f = AMediaFormat_new();
