@@ -112,17 +112,7 @@ static ANativeWindow *create_encoder(int w, int h, int fps, int bps) {
     return win;
 }
 
-/* A standalone binary has no binder thread pool; without one the camera service blocks dequeueing
-   buffers from our surface. Android 9 has no NDK call for it, so use libbinder:
-   ProcessState::self()->startThreadPool(). */
-static void start_binder_threads(void) {
-    void *lib = dlopen("libbinder.so", RTLD_NOW);
-    void (*self)(void **) = lib ? (void (*)(void **))dlsym(lib, "_ZN7android12ProcessState4selfEv") : NULL;
-    void (*start)(void *) = lib ? (void (*)(void *))dlsym(lib, "_ZN7android12ProcessState15startThreadPoolEv") : NULL;
-    if (!self || !start) { fprintf(stderr, "libbinder not usable\n"); return; }
-    void *sp[1] = { 0 }; self(sp);               /* sp<ProcessState> is returned through sret */
-    if (sp[0]) start(sp[0]);
-}
+void start_binder_threads(void);   /* common/binderpool.cpp */
 
 /* drop clients that closed the connection (otherwise the camera stays on without a viewer) */
 static void reap_clients(void) {

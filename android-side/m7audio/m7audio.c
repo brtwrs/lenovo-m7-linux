@@ -22,13 +22,7 @@
 #define RATE 48000
 #define BLOCK 960
 
-static void start_binder_threads(void) {
-    void *lib = dlopen("libbinder.so", RTLD_NOW);
-    void (*self)(void **) = lib ? (void (*)(void **))dlsym(lib, "_ZN7android12ProcessState4selfEv") : NULL;
-    void (*start)(void *) = lib ? (void (*)(void *))dlsym(lib, "_ZN7android12ProcessState15startThreadPoolEv") : NULL;
-    if (!self || !start) return;
-    void *sp[1] = { 0 }; self(sp); if (sp[0]) start(sp[0]);
-}
+void start_binder_threads(void);   /* common/binderpool.cpp */
 
 static AAudioStream *open_stream(int input, int channels) {
     AAudioStreamBuilder *b; AAudioStream *s = NULL;
@@ -126,14 +120,18 @@ static int play(const char *path) {
 static int set_volume(int index) {
     void *lib = dlopen("libaudioclient.so", RTLD_NOW);
     int (*init)(int, int, int) = lib ? dlsym(lib, "_ZN7android11AudioSystem16initStreamVolumeE19audio_stream_type_tii") : NULL;
+    /* Android 9 (M7): device as unsigned int; Android 12+ (M8): its own enum type audio_devices_t. Same ABI. */
     int (*set)(int, int, unsigned) = lib ? dlsym(lib, "_ZN7android11AudioSystem20setStreamVolumeIndexE19audio_stream_type_tij") : NULL;
+    if (lib && !set) set = dlsym(lib, "_ZN7android11AudioSystem20setStreamVolumeIndexE19audio_stream_type_ti15audio_devices_t");
     if (!init || !set) { fprintf(stderr, "libaudioclient not usable\n"); return 1; }
     int r = 0;
-    for (int stream = 0; stream <= 10; stream++) {        /* all regular streams, 15 steps */
-        init(stream, 0, 15);
-        r |= set(stream, index, 0x2);                       /* AUDIO_DEVICE_OUT_SPEAKER */
-        r |= set(stream, index, 0x40000000);                /* AUDIO_DEVICE_OUT_DEFAULT */
-    }
+    /* Only AUDIO_STREAM_MUSIC (3): everything from Linux plays through AAudio with usage MEDIA, i.e. the music
+       stream. Initialising more streams broke the M8 (Android 12): afterwards the next recording made the MTK
+       audio HAL hang, and audioserver aborted on a TimeCheck timeout (forgetting every volume again). */
+    const int stream = 3;
+    init(stream, 0, 15);
+    r |= set(stream, index, 0x2);                           /* AUDIO_DEVICE_OUT_SPEAKER */
+    r |= set(stream, index, 0x40000000);                    /* AUDIO_DEVICE_OUT_DEFAULT */
     fprintf(stderr, "volume %d/15 (%d)\n", index, r);
     return r != 0;
 }
