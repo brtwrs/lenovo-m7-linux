@@ -21,6 +21,8 @@ CAM=$(cat $D/camera 2>/dev/null || echo 1)
 
 # Sound: set the stream volumes (they sit at -inf without system_server), then play PulseAudio's
 # null-sink monitor (unix socket inside the chroot) through audioserver.
-./m7audio volume $(cat $D/volume 2>/dev/null || echo 8)
-( while true; do ./m7audio play /data/linux/run/m7pulse/pcm </dev/null >>$D/m7audio.log 2>&1; echo "$(date +%T) m7audio stopped"; sleep 3; done ) &
+VOL=$(cat $D/volume 2>/dev/null || echo 8)
+./m7audio volume $VOL
+# the volume goes along: m7audio sets it again whenever it opens the speaker (audioserver restarts forget it)
+( while true; do ./m7audio play /data/linux/run/m7pulse/pcm $VOL </dev/null >>$D/m7audio.log 2>&1; echo "$(date +%T) m7audio stopped"; sleep 3; done ) &
 echo "started, camera $CAM"
