@@ -33,7 +33,8 @@ Android's own hwcomposer, the same way Halium/Droidian phones do it.
 | **Cameras** (front, back) | ✅ | Android's camera HAL + hardware H.264 encoder → RTSP, 1280×720 ~15 fps ([chapter 12](docs/12-camera.md)) |
 | Light / proximity sensor | ⚪ not fitted | the framework is there, but the tablet has no such chip |
 
-Sibling project: [lenovo-m8-linux](https://github.com/brtwrs/lenovo-m8-linux) for the Tab M8 4th gen (TB300FU).
+Sibling projects: [lenovo-m8-linux](https://github.com/brtwrs/lenovo-m8-linux) for the Tab M8 4th gen (TB300FU) and
+[lenovo-m11-linux](https://github.com/brtwrs/lenovo-m11-linux) for the Tab M11 (TB330FU).
 
 ## How it fits together
 
